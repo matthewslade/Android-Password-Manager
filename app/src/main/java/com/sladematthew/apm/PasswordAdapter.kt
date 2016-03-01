@@ -13,11 +13,11 @@ import kotlinx.android.synthetic.main.item_password.view.*
 class PasswordAdapter(var passwordList: PasswordList,var onItemClickListener: OnItemClickListener) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder? {
-        return ViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_password, parent, false))
+        return ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_password, parent, false))
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        (holder as ViewHolder).itemView.name.text = passwordList.passwords.get(position).label
+        (holder as ViewHolder).itemView.name.text = passwordList.passwords[position].label
     }
 
     override fun getItemCount(): Int {
@@ -35,7 +35,7 @@ class PasswordAdapter(var passwordList: PasswordList,var onItemClickListener: On
                 if (pos < 0) {
                     pos = 0
                 }
-                onItemClickListener.onClick(this, passwordList.passwords.get(pos), pos)
+                onItemClickListener.onClick(this, passwordList.passwords[pos], pos)
         }
     }
 }

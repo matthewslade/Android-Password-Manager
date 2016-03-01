@@ -1,11 +1,14 @@
 package com.sladematthew.apm
 
 import android.content.Context
+import android.os.AsyncTask
+import android.os.Environment
 import android.preference.PreferenceManager
 import android.support.v7.app.AppCompatActivity
 import android.view.View
 import com.dropbox.client2.DropboxAPI
 import com.dropbox.client2.android.AndroidAuthSession
+import com.dropbox.client2.exception.DropboxServerException
 import com.dropbox.client2.session.AppKeyPair
 import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
@@ -16,6 +19,7 @@ import java.io.*
 import java.math.BigInteger
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
+import java.util.*
 
 class AuthenticationManager(var context: android.content.Context) {
 
@@ -23,9 +27,11 @@ class AuthenticationManager(var context: android.content.Context) {
 
     private var passwordList:PasswordList?=null
 
+    private var log = Log.getLogger(AuthenticationManager::class.java)
+
     init
     {
-        val appKeys = AppKeyPair(Constants.APP_KEY, Constants.APP_SECRET)
+        val appKeys = AppKeyPair(Constants.Credentials.APP_KEY, Constants.Credentials.APP_SECRET)
         val session = AndroidAuthSession(appKeys)
         mDBApi = DropboxAPI(session)
     }
@@ -42,11 +48,11 @@ class AuthenticationManager(var context: android.content.Context) {
                 // Required to complete auth, sets the access token on the session
                 mDBApi?.session?.finishAuthentication()
                 val accessToken = mDBApi?.session?.oAuth2AccessToken
-                PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.ACCESS_TOKEN, accessToken).apply()
+                PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.ACCESS_TOKEN, accessToken).apply()
                 return true
 
             } catch (e: IllegalStateException) {
-
+                log.warn("unable to complete dropbox auth",e)
             }
 
         }
@@ -74,72 +80,112 @@ class AuthenticationManager(var context: android.content.Context) {
     }
 
     fun setMasterPassword(password: String){
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.MASTER_PASSWORD_HASH,password).apply()
+        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,getMD5EncryptedString(password)).apply()
     }
 
     fun checkMasterPassword(password: String):Boolean
     {
         var md5Password = getMD5EncryptedString(password)
-        if(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.MASTER_PASSWORD_HASH,"").equals(md5Password))
+        if(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,"").equals(md5Password))
             return true
         return false
     }
 
     fun generatePassword(password: Password):String
     {
-        if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.MASTER_PASSWORD_HASH))
-            return getMD5EncryptedString(password.label+password.version+PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.MASTER_PASSWORD_HASH,""))
+        if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
+            return getMD5EncryptedString(password.label+password.version+PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,""))
         return ""
     }
 
-    fun getPasswordList(): PasswordList
+    fun getPasswordList(callback: (PasswordList)-> Unit)
     {
-        if(passwordList==null) {
-            var file = File(Constants.FILENAME)
+        class GetPaswordListTask: AsyncTask<Void, Void, Void>()
+        {
+            override fun doInBackground(vararg p0: Void?): Void?
+            {
+                var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Names.LOCAL_FILENAME)
 
-            var outputStream = FileOutputStream(file);
+                var outputStream = FileOutputStream(file);
 
-            if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.ACCESS_TOKEN)) {
-                var info = mDBApi?.getFile(Constants.FILENAME, null, outputStream, null);
+                if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
+                    try {
+                        var info = mDBApi?.getFile(Constants.Names.DROPBOX_FILENAME, null, outputStream, null);
+                    }
+                    catch(e:DropboxServerException)
+                    {
+                        log.debug("dropbox server exception",e)
+                    }
+                }
+
+                var reader = JsonReader(FileReader(file));
+                passwordList = Gson().fromJson<PasswordList>(reader, PasswordList::class.java);
+                if(passwordList==null)
+                    passwordList = PasswordList(ArrayList<Password>());
+                return null;
             }
 
-            var reader = JsonReader(FileReader(file));
-            passwordList = Gson().fromJson<PasswordList>(reader, PasswordList::class.java);
+            override fun onPostExecute(result: Void?) {
+                callback(passwordList!!)
+            }
         }
-        return passwordList!!
+
+        if(passwordList==null)
+            GetPaswordListTask().execute()
+        else
+            callback(passwordList!!)
 
     }
 
     fun addorUpdatePassword(password: Password)
     {
 
-        for(p in getPasswordList().passwords)
+        class PutPaswordListTask: AsyncTask<String, Void, Void>()
         {
-            if (password.label.equals(p.label)
+            override fun doInBackground(vararg p0: String?): Void? {
+                try {
+                    var outPutString:String = p0[0]!!;
+                    var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Names.LOCAL_FILENAME);
+                    file.createNewFile()
+                    var fOut = FileOutputStream(file);
+                    var outWriter = OutputStreamWriter(fOut);
+                    outWriter.append(outPutString);
+                    outWriter.close();
+                    fOut.close();
+
+                    if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
+                        var inputStream = FileInputStream(file);
+                        var response = mDBApi?.putFileOverwrite(Constants.Names.DROPBOX_FILENAME, inputStream, file.length(), null);
+                        log.debug("response is {}",response?.rev)
+                    }
+
+                } catch (e:Exception) {
+                    log.warn("unable to save password file",e)
+                }
+                return null;
+            }
+        }
+
+        fun addOrUpdatePasswordCallback(pwList:PasswordList)
+        {
+            var exists:Boolean = false;
+            for(p in pwList.passwords)
             {
-                p.version = password.version
-            }
-        }
-
-
-        var passwordFileString = Gson().toJson(passwordList)
-
-        try {
-            var file = File(Constants.FILENAME);
-            file.createNewFile();
-            var fOut = FileOutputStream(file);
-            var myOutWriter = OutputStreamWriter(fOut);
-            myOutWriter.append(passwordFileString);
-            myOutWriter.close();
-            fOut.close();
-
-            if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.ACCESS_TOKEN)) {
-                var inputStream = FileInputStream(file);
-                var response = mDBApi?.putFile("/magnum-opus.txt", inputStream, file.length(), null, null);
+                if (password.label.equals(p.label))
+                {
+                    p.version = password.version;
+                    exists=true
+                }
             }
 
-        } catch (e:Exception) {
-
+            if(!exists)
+            {
+                pwList.passwords.add(password)
+            }
+            var passwordFileString = Gson().toJson(passwordList)
+            PutPaswordListTask().execute(passwordFileString)
         }
+
+        getPasswordList(::addOrUpdatePasswordCallback)
     }
 }

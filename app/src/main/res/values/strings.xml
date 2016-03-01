@@ -6,4 +6,5 @@
 
     <string name="error_password_mismatch">Passwords don\'t match</string>
     <string name="error_password_wrong">Password is wrong</string>
+    <string name="update">Update and Save</string>
 </resources>

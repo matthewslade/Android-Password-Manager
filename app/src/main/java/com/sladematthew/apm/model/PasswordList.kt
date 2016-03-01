@@ -1,3 +1,3 @@
 package com.sladematthew.apm.model
 
-data class PasswordList(var passwords:List<Password>)
+data class PasswordList(var passwords:MutableList<Password>)
