@@ -3,6 +3,7 @@ package com.sladematthew.apm
 import android.content.Intent
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.DefaultItemAnimator
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import com.sladematthew.apm.model.Password
@@ -21,6 +22,10 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.itemAnimator = DefaultItemAnimator()
+        recyclerView.setHasFixedSize(true)
+        recyclerView.addItemDecoration(DividerDecoration(this))
+
         addPassword.setOnClickListener{startActivity(Intent(this, PasswordActivity::class.java))}
         fun callback(passwordList: PasswordList)
         {
@@ -31,5 +36,5 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener
         authenticationManager!!.getPasswordList(::callback)
     }
 
-    
+
 }

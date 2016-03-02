@@ -27,12 +27,16 @@ class AuthenticationManager(var context: android.content.Context) {
 
     private var passwordList:PasswordList?=null
 
+    private var masterPassword:String?=null
+
     private var log = Log.getLogger(AuthenticationManager::class.java)
 
     init
     {
         val appKeys = AppKeyPair(Constants.Credentials.APP_KEY, Constants.Credentials.APP_SECRET)
         val session = AndroidAuthSession(appKeys)
+        if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN))
+            session.oAuth2AccessToken = PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.ACCESS_TOKEN,null)
         mDBApi = DropboxAPI(session)
     }
 
@@ -80,21 +84,24 @@ class AuthenticationManager(var context: android.content.Context) {
     }
 
     fun setMasterPassword(password: String){
+        masterPassword = password
         PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,getMD5EncryptedString(password)).apply()
     }
 
     fun checkMasterPassword(password: String):Boolean
     {
         var md5Password = getMD5EncryptedString(password)
-        if(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,"").equals(md5Password))
+        if(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,"").equals(md5Password)) {
+            masterPassword = password
             return true
+        }
         return false
     }
 
     fun generatePassword(password: Password):String
     {
         if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return getMD5EncryptedString(password.label+password.version+PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,""))
+            return getMD5EncryptedString(password.label+password.version+masterPassword)
         return ""
     }
 
