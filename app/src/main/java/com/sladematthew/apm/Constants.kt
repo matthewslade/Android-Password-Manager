@@ -16,7 +16,9 @@ class Constants{
         val APP_SECRET = "a0ccibz0ijb9q0p"
     }
 
-    object Names{
+    object Misc {
+        val DEFAULT_LENGTH = 10
+        val DEFAULT_PREFIX = "P_"
         val LOCAL_FILENAME = "/passwords.json"
         val DROPBOX_FILENAME = "/passwords.json"
     }

@@ -6,5 +6,23 @@
 
     <string name="error_password_mismatch">Passwords don\'t match</string>
     <string name="error_password_wrong">Password is wrong</string>
-    <string name="update">Update and Save</string>
+    <string name="error_version">Version must be between 1 and 9999</string>
+    <string name="error_length">Length must be between 4 and 24</string>
+    <string name="toast_save_success">Passwords saved</string>
+    <string name="toast_save_error">Error occurred while trying to save passwords</string>
+
+    <string name="update">Save</string>
+    <string name="copy">Copy</string>
+    <string name="show">Show</string>
+
+    <string name="label">Label</string>
+    <string name="username">Username</string>
+    <string name="optional">optional</string>
+    <string name="hashLength">Length</string>
+    <string name="version">Version</string>
+    <string name="prefix">Prefix</string>
+    <string name="delete">Delete</string>
+    <string name="dialog_delete_title">Confirm Delete?</string>
+    <string name="dialog_delete_message">Are you sure you want to delete this password configuration?</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
 </resources>

@@ -6,6 +6,7 @@ import android.os.Environment
 import android.preference.PreferenceManager
 import android.support.v7.app.AppCompatActivity
 import android.view.View
+import android.widget.Toast
 import com.dropbox.client2.DropboxAPI
 import com.dropbox.client2.android.AndroidAuthSession
 import com.dropbox.client2.exception.DropboxServerException
@@ -25,7 +26,7 @@ class AuthenticationManager(var context: android.content.Context) {
 
     private var mDBApi: DropboxAPI<AndroidAuthSession>? = null
 
-    private var passwordList:PasswordList?=null
+    var passwordList:PasswordList?=null
 
     private var masterPassword:String?=null
 
@@ -76,9 +77,9 @@ class AuthenticationManager(var context: android.content.Context) {
             return ""
 
         mdEnc.update(encTarget.toByteArray(), 0, encTarget.length)
-        var md5 = BigInteger(1, mdEnc.digest()).toString(16)
-        while (md5.length < 32) {
-            md5 = "0" + md5
+        var md5 = BigInteger(1, mdEnc.digest()).toString(34)
+        while (md5.length < 24) {
+            md5 = md5 + "0"
         }
         return md5
     }
@@ -101,23 +102,23 @@ class AuthenticationManager(var context: android.content.Context) {
     fun generatePassword(password: Password):String
     {
         if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return getMD5EncryptedString(password.label+password.version+masterPassword)
+            return password.prefix.trim()+getMD5EncryptedString(password.label.toLowerCase().trim().replace(" ","")+password.version+masterPassword!!.trim()).substring(0,password.length)
         return ""
     }
 
-    fun getPasswordList(callback: (PasswordList)-> Unit)
+    fun loadPasswordList(callback: ()-> Unit)
     {
         class GetPaswordListTask: AsyncTask<Void, Void, Void>()
         {
             override fun doInBackground(vararg p0: Void?): Void?
             {
-                var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Names.LOCAL_FILENAME)
+                var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME)
 
                 var outputStream = FileOutputStream(file);
 
                 if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
                     try {
-                        var info = mDBApi?.getFile(Constants.Names.DROPBOX_FILENAME, null, outputStream, null);
+                        var info = mDBApi?.getFile(Constants.Misc.DROPBOX_FILENAME, null, outputStream, null);
                     }
                     catch(e:DropboxServerException)
                     {
@@ -128,71 +129,79 @@ class AuthenticationManager(var context: android.content.Context) {
                 var reader = JsonReader(FileReader(file));
                 passwordList = Gson().fromJson<PasswordList>(reader, PasswordList::class.java);
                 if(passwordList==null)
-                    passwordList = PasswordList(ArrayList<Password>());
+                    passwordList = PasswordList(HashMap<String,Password>());
                 return null;
             }
 
             override fun onPostExecute(result: Void?) {
-                callback(passwordList!!)
+                callback()
             }
         }
 
         if(passwordList==null)
             GetPaswordListTask().execute()
         else
-            callback(passwordList!!)
+            callback()
 
     }
 
-    fun addorUpdatePassword(password: Password)
+    inner class PutPaswordListTask(var callback:()->Unit): AsyncTask<Void, Void, Boolean>()
     {
+        override fun doInBackground(vararg p0: Void?): Boolean {
+            try {
+                var passwordFileString = Gson().toJson(passwordList)
+                var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME);
+                file.createNewFile()
+                var fOut = FileOutputStream(file);
+                var outWriter = OutputStreamWriter(fOut);
+                outWriter.append(passwordFileString);
+                outWriter.close();
+                fOut.close();
 
-        class PutPaswordListTask: AsyncTask<String, Void, Void>()
-        {
-            override fun doInBackground(vararg p0: String?): Void? {
-                try {
-                    var outPutString:String = p0[0]!!;
-                    var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Names.LOCAL_FILENAME);
-                    file.createNewFile()
-                    var fOut = FileOutputStream(file);
-                    var outWriter = OutputStreamWriter(fOut);
-                    outWriter.append(outPutString);
-                    outWriter.close();
-                    fOut.close();
-
-                    if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
-                        var inputStream = FileInputStream(file);
-                        var response = mDBApi?.putFileOverwrite(Constants.Names.DROPBOX_FILENAME, inputStream, file.length(), null);
-                        log.debug("response is {}",response?.rev)
-                    }
-
-                } catch (e:Exception) {
-                    log.warn("unable to save password file",e)
+                if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
+                    var inputStream = FileInputStream(file);
+                    var response = mDBApi?.putFileOverwrite(Constants.Misc.DROPBOX_FILENAME, inputStream, file.length(), null);
+                    log.debug("response is {}",response?.rev)
                 }
-                return null;
+                return true
+
+            } catch (e:Exception) {
+                log.warn("unable to save password file",e)
             }
+            return false;
         }
 
-        fun addOrUpdatePasswordCallback(pwList:PasswordList)
-        {
-            var exists:Boolean = false;
-            for(p in pwList.passwords)
-            {
-                if (password.label.equals(p.label))
-                {
-                    p.version = password.version;
-                    exists=true
-                }
+        override fun onPostExecute(result: Boolean) {
+            if(result) {
+                Toast.makeText(context, R.string.toast_save_success, Toast.LENGTH_LONG).show()
+                callback()
             }
-
-            if(!exists)
-            {
-                pwList.passwords.add(password)
-            }
-            var passwordFileString = Gson().toJson(passwordList)
-            PutPaswordListTask().execute(passwordFileString)
+            else
+                Toast.makeText(context,R.string.toast_save_error,Toast.LENGTH_LONG).show()
         }
+    }
 
-        getPasswordList(::addOrUpdatePasswordCallback)
+    fun addorUpdatePassword(password: Password,callback:()-> Unit)
+    {
+        fun addOrUpdatePasswordCallback()
+        {
+            passwordList!!.passwords.put(password.label,password)
+            PutPaswordListTask(callback).execute()
+        }
+        loadPasswordList(::addOrUpdatePasswordCallback)
+    }
+
+    fun deletePassword(password: Password,callback: () -> Unit)
+    {
+        fun deletePasswordCallback()
+        {
+            if(passwordList!!.passwords.containsKey(password.label))
+            {
+                passwordList!!.passwords.remove(password.label)
+
+                PutPaswordListTask(callback).execute()
+            }
+        }
+        loadPasswordList(::deletePasswordCallback)
     }
 }
