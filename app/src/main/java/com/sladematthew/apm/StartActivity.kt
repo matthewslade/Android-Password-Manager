@@ -73,6 +73,7 @@ class StartActivity : APMActivity() {
 
     override fun onResume() {
         super.onResume()
+        password.setText("")
         if(authenticationManager!!.authCompleted())
         {
             dropbox.visibility = View.GONE

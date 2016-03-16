@@ -4,6 +4,7 @@ class Constants{
     object SharedPrefs {
         val ACCESS_TOKEN = "apm.accessToken"
         val MASTER_PASSWORD_HASH = "apm.masterPasswordHash"
+        val LAST_ACTIVITY = "apm.lastActivity"
 
     }
 
