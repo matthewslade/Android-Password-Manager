@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.preference.PreferenceManager
-import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
@@ -24,7 +23,6 @@ class StartActivity : APMActivity() {
 
         if(PreferenceManager.getDefaultSharedPreferences(this).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
             dropbox.visibility = View.GONE
-            //authenticationManager!!.authWithDropbox(this)
         }
 
         if(PreferenceManager.getDefaultSharedPreferences(this).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
@@ -73,7 +71,13 @@ class StartActivity : APMActivity() {
 
     override fun onResume() {
         super.onResume()
+        authenticationManager!!.clearMasterPassword()
         password.setText("")
+        confirmPassword.setText("")
+
+        if(PreferenceManager.getDefaultSharedPreferences(this).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
+            confirmPassword.visibility = View.GONE
+
         if(authenticationManager!!.authCompleted())
         {
             dropbox.visibility = View.GONE

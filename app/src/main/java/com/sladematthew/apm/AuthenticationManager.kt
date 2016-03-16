@@ -84,14 +84,19 @@ class AuthenticationManager(var context: android.content.Context) {
         return md5
     }
 
+    fun clearMasterPassword()
+    {
+        masterPassword = ""
+    }
+
     fun setMasterPassword(password: String){
         masterPassword = password
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,getMD5EncryptedString(password)).apply()
+        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,getMD5EncryptedString(password).substring(2)).apply()
     }
 
     fun checkMasterPassword(password: String):Boolean
     {
-        var md5Password = getMD5EncryptedString(password)
+        var md5Password = getMD5EncryptedString(password).substring(2)
         if(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,"").equals(md5Password)) {
             masterPassword = password
             return true
