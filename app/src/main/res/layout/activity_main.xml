@@ -1,17 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
+    android:background="#EEE"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <android.support.v7.widget.RecyclerView
-        android:id="@+id/recyclerView"
+    <EditText
+        android:id="@+id/searchBox"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/addPassword"
-        android:layout_margin="20dp"
-        android:src="@mipmap/ic_action_content_add"
-        android:layout_gravity="bottom|right"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
-</FrameLayout>
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:hint="Search"
+        android:textSize="18sp"/>
+    <FrameLayout
+        android:background="@android:color/white"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <android.support.v7.widget.RecyclerView
+            android:id="@+id/recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/addPassword"
+            android:layout_margin="20dp"
+            android:src="@mipmap/ic_action_content_add"
+            android:layout_gravity="bottom|right"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </FrameLayout>
+</LinearLayout>
