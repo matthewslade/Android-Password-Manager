@@ -26,17 +26,16 @@
         <activity android:name=".ViewPasswordActivity"/>
 
         <activity
-            android:name="com.dropbox.client2.android.AuthActivity"
-            android:launchMode="singleTask"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:configChanges="orientation|keyboard">
+            android:name="com.dropbox.core.android.AuthActivity"
+            android:configChanges="orientation|keyboard"
+            android:launchMode="singleTask">
             <intent-filter>
-                <data android:scheme="db-w72uu1b53wlewpr" />
-                <action android:name="android.intent.action.VIEW" />
+                <data android:scheme="db-w72uu1b53wlewpr"/>
+                <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
-        </activity>
+    </activity>
     </application>
 
 </manifest>

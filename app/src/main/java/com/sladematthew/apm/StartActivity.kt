@@ -9,16 +9,17 @@ import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.view.View
 import android.widget.Toast
+import com.dropbox.core.android.Auth
 import kotlinx.android.synthetic.main.activity_start.*
 
 class StartActivity : APMActivity() {
 
-    val MY_PERMISSIONS_REQUEST_STORAGE =12
+    val MY_PERMISSIONS_REQUEST_STORAGE = 12
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_start)
-        dropbox.setOnClickListener{authenticationManager!!.authWithDropbox(this)}
+        dropbox.setOnClickListener{ Auth.startOAuth2Authentication(this,Constants.Credentials.APP_KEY)}
         login.setOnClickListener{onLoginButtonClicked()}
 
         if(PreferenceManager.getDefaultSharedPreferences(this).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
@@ -56,9 +57,9 @@ class StartActivity : APMActivity() {
 
     fun checkPermissions()
     {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
         {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_CONTACTS))
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE))
             {
 
             }
@@ -78,7 +79,7 @@ class StartActivity : APMActivity() {
         if(PreferenceManager.getDefaultSharedPreferences(this).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
             confirmPassword.visibility = View.GONE
 
-        if(authenticationManager!!.authCompleted())
+        if(PreferenceManager.getDefaultSharedPreferences(this).getString(Constants.SharedPrefs.ACCESS_TOKEN, null) != null)
         {
             dropbox.visibility = View.GONE
         }

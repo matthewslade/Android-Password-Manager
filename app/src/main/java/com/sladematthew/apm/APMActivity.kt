@@ -18,10 +18,10 @@ open class APMActivity : AppCompatActivity() {
         super.onResume()
         if(!this.javaClass.name.equals(StartActivity::class.java.name) && this.javaClass.name.equals(PreferenceManager.getDefaultSharedPreferences(this).getString(Constants.SharedPrefs.LAST_ACTIVITY,null)))
         {
-            var intent = Intent(this, StartActivity::class.java);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(intent);
+            val intent = Intent(this, StartActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            startActivity(intent)
         }
     }
 

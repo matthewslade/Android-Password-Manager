@@ -7,10 +7,11 @@ import android.preference.PreferenceManager
 import android.support.v7.app.AppCompatActivity
 import android.view.View
 import android.widget.Toast
-import com.dropbox.client2.DropboxAPI
-import com.dropbox.client2.android.AndroidAuthSession
-import com.dropbox.client2.exception.DropboxServerException
-import com.dropbox.client2.session.AppKeyPair
+import com.dropbox.core.DbxRequestConfig
+import com.dropbox.core.android.Auth
+import com.dropbox.core.http.OkHttp3Requestor
+import com.dropbox.core.v2.DbxClientV2
+import com.dropbox.core.v2.files.WriteMode
 import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
 import com.sladematthew.apm.model.Password
@@ -24,7 +25,7 @@ import java.util.*
 
 class AuthenticationManager(var context: android.content.Context) {
 
-    private var mDBApi: DropboxAPI<AndroidAuthSession>? = null
+    var dropboxClient:DbxClientV2?=null
 
     var passwordList:PasswordList?=null
 
@@ -32,36 +33,20 @@ class AuthenticationManager(var context: android.content.Context) {
 
     private var log = Log.getLogger(AuthenticationManager::class.java)
 
-    init
+    fun initDropboxClient()
     {
-        val appKeys = AppKeyPair(Constants.Credentials.APP_KEY, Constants.Credentials.APP_SECRET)
-        val session = AndroidAuthSession(appKeys)
-        if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN))
-            session.oAuth2AccessToken = PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.ACCESS_TOKEN,null)
-        mDBApi = DropboxAPI(session)
-    }
-
-    fun authWithDropbox(activity: StartActivity)
-    {
-        mDBApi?.session?.startOAuth2Authentication(activity)
-    }
-
-    fun authCompleted():Boolean
-    {
-        if (mDBApi?.session?.authenticationSuccessful()?:false) {
-            try {
-                // Required to complete auth, sets the access token on the session
-                mDBApi?.session?.finishAuthentication()
-                val accessToken = mDBApi?.session?.oAuth2AccessToken
-                PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.ACCESS_TOKEN, accessToken).apply()
-                return true
-
-            } catch (e: IllegalStateException) {
-                log.warn("unable to complete dropbox auth",e)
-            }
+        var accessToken = PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.ACCESS_TOKEN, null)
+        if (accessToken == null)
+        {
+            accessToken = Auth.getOAuth2Token()
 
         }
-        return false
+        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.ACCESS_TOKEN, accessToken).apply()
+        if (dropboxClient == null)
+        {
+            val requestConfig = DbxRequestConfig.newBuilder("AndroidPasswordManager").withHttpRequestor(OkHttp3Requestor.INSTANCE).build()
+            dropboxClient = DbxClientV2(requestConfig, accessToken)
+        }
     }
 
     fun getMD5EncryptedString(encTarget: String): String {
@@ -79,7 +64,7 @@ class AuthenticationManager(var context: android.content.Context) {
         mdEnc.update(encTarget.toByteArray(), 0, encTarget.length)
         var md5 = BigInteger(1, mdEnc.digest()).toString(34)
         while (md5.length < 24) {
-            md5 = md5 + "0"
+            md5 += "0"
         }
         return md5
     }
@@ -98,6 +83,7 @@ class AuthenticationManager(var context: android.content.Context) {
     {
         var md5Password = getMD5EncryptedString(password).substring(2)
         if(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,"").equals(md5Password)) {
+            log.debug(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,""))
             masterPassword = password
             return true
         }
@@ -113,29 +99,25 @@ class AuthenticationManager(var context: android.content.Context) {
 
     fun loadPasswordList(callback: ()-> Unit)
     {
+        initDropboxClient()
         class GetPaswordListTask: AsyncTask<Void, Void, Void>()
         {
             override fun doInBackground(vararg p0: Void?): Void?
             {
                 var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME)
 
-                var outputStream = FileOutputStream(file);
+                var outputStream = FileOutputStream(file)
 
                 if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
-                    try {
-                        var info = mDBApi?.getFile(Constants.Misc.DROPBOX_FILENAME, null, outputStream, null);
-                    }
-                    catch(e:DropboxServerException)
-                    {
-                        log.debug("dropbox server exception",e)
-                    }
+                    var downloader = dropboxClient?.files()?.download(Constants.Misc.DROPBOX_FILENAME)
+                    downloader?.download(outputStream)
                 }
 
-                var reader = JsonReader(FileReader(file));
-                passwordList = Gson().fromJson<PasswordList>(reader, PasswordList::class.java);
+                var reader = JsonReader(FileReader(file))
+                passwordList = Gson().fromJson<PasswordList>(reader, PasswordList::class.java)
                 if(passwordList==null)
-                    passwordList = PasswordList(HashMap<String,Password>());
-                return null;
+                    passwordList = PasswordList(HashMap<String,Password>())
+                return null
             }
 
             override fun onPostExecute(result: Void?) {
@@ -154,18 +136,17 @@ class AuthenticationManager(var context: android.content.Context) {
     {
         override fun doInBackground(vararg p0: Void?): Boolean {
             try {
-                var passwordFileString = Gson().toJson(passwordList)
-                var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME);
+                val passwordFileString = Gson().toJson(passwordList)
+                val file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME);
                 file.createNewFile()
-                var fOut = FileOutputStream(file);
-                var outWriter = OutputStreamWriter(fOut);
-                outWriter.append(passwordFileString);
-                outWriter.close();
-                fOut.close();
+                val fOut = FileOutputStream(file)
+                val outWriter = OutputStreamWriter(fOut)
+                outWriter.append(passwordFileString)
+                outWriter.close()
+                fOut.close()
 
                 if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
-                    var inputStream = FileInputStream(file);
-                    var response = mDBApi?.putFileOverwrite(Constants.Misc.DROPBOX_FILENAME, inputStream, file.length(), null);
+                    val response = dropboxClient?.files()?.uploadBuilder(Constants.Misc.DROPBOX_FILENAME)?.withMode(WriteMode.OVERWRITE)?.uploadAndFinish(FileInputStream(file))
                     log.debug("response is {}",response?.rev)
                 }
                 return true
@@ -173,7 +154,7 @@ class AuthenticationManager(var context: android.content.Context) {
             } catch (e:Exception) {
                 log.warn("unable to save password file",e)
             }
-            return false;
+            return false
         }
 
         override fun onPostExecute(result: Boolean) {
@@ -188,6 +169,7 @@ class AuthenticationManager(var context: android.content.Context) {
 
     fun addorUpdatePassword(password: Password,callback:()-> Unit)
     {
+        initDropboxClient()
         fun addOrUpdatePasswordCallback()
         {
             passwordList!!.passwords.put(password.label,password)
@@ -198,6 +180,7 @@ class AuthenticationManager(var context: android.content.Context) {
 
     fun deletePassword(password: Password,callback: () -> Unit)
     {
+        initDropboxClient()
         fun deletePasswordCallback()
         {
             if(passwordList!!.passwords.containsKey(password.label))
