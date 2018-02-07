@@ -24,5 +24,6 @@
     <string name="delete">Delete</string>
     <string name="dialog_delete_title">Confirm Delete?</string>
     <string name="dialog_delete_message">Are you sure you want to delete this password configuration?</string>
-    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="copied_to_clipboard">%s copied to clipboard</string>
+    <string name="authentication_failed">Authentication Failed</string>
 </resources>

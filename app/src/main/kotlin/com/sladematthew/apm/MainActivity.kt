@@ -1,5 +1,7 @@
 package com.sladematthew.apm
 
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.support.v7.widget.DefaultItemAnimator
@@ -7,13 +9,16 @@ import android.support.v7.widget.LinearLayoutManager
 import android.text.Editable
 import android.text.TextWatcher
 import com.sladematthew.apm.model.Password
-import com.sladematthew.apm.model.PasswordList
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
+import android.support.v7.widget.DividerItemDecoration
+import android.widget.Toast
 
 class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatcher
 {
-    var adapter:PasswordAdapter?=null
+    private var adapter:PasswordAdapter?=null
+
+    private var nextIntent: Intent? = null
 
     override fun afterTextChanged(s: Editable?) {
         adapter?.filter?.filter(s)
@@ -28,30 +33,37 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatch
     }
 
     override fun onLongClick(viewHolder: PasswordAdapter.ViewHolder, item: Password, position: Int) {
-        var intent = Intent(this, EditPasswordActivity::class.java)
-        intent.putExtra(Constants.IntentKey.PASSWORD,item)
-        startActivity(intent)
+        nextIntent = Intent(this, EditPasswordActivity::class.java)
+        nextIntent?.putExtra(Constants.IntentKey.PASSWORD,item)
+        if(authenticationManager!!.isAuthenticated())
+            startActivity(nextIntent)
+        else
+            showAuthenticationScreen()
     }
 
     override fun onClick(viewHolder: PasswordAdapter.ViewHolder, item: Password, position: Int) {
-        var intent = Intent(this, ViewPasswordActivity::class.java)
-        intent.putExtra(Constants.IntentKey.PASSWORD,item)
-        startActivity(intent)
+        nextIntent = Intent(this, ViewPasswordActivity::class.java)
+        nextIntent?.putExtra(Constants.IntentKey.PASSWORD,item)
+        if(authenticationManager!!.isAuthenticated())
+            startActivity(nextIntent)
+        else
+            showAuthenticationScreen()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        authenticationManager?.createKey()
         setContentView(R.layout.activity_main)
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.itemAnimator = DefaultItemAnimator()
         recyclerView.setHasFixedSize(true)
-        recyclerView.addItemDecoration(DividerDecoration(this))
+        recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
         searchBox.addTextChangedListener(this)
         addPassword.setOnClickListener{startActivity(Intent(this, EditPasswordActivity::class.java))}
         loadPasswordList()
     }
 
-    fun loadPasswordList()
+    private fun loadPasswordList()
     {
         fun callback()
         {
@@ -65,5 +77,16 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatch
     override fun onResume() {
         super.onResume()
         loadPasswordList()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (resultCode != RESULT_OK) {
+            Toast.makeText(this, getString(R.string.authentication_failed), Toast.LENGTH_SHORT).show()
+        }
+
+        if(requestCode == REQUESTCODE)
+        {
+            startActivity(nextIntent)
+        }
     }
 }

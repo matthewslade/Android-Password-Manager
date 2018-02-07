@@ -1,11 +1,11 @@
 package com.sladematthew.apm
 
-import android.content.Context
 import android.os.AsyncTask
 import android.os.Environment
 import android.preference.PreferenceManager
-import android.support.v7.app.AppCompatActivity
-import android.view.View
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Log
 import android.widget.Toast
 import com.dropbox.core.DbxRequestConfig
 import com.dropbox.core.android.Auth
@@ -16,12 +16,15 @@ import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
 import com.sladematthew.apm.model.Password
 import com.sladematthew.apm.model.PasswordList
-import kotlinx.android.synthetic.main.activity_start.*
 import java.io.*
 import java.math.BigInteger
+import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 import java.util.*
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
 
 class AuthenticationManager(var context: android.content.Context) {
 
@@ -31,9 +34,9 @@ class AuthenticationManager(var context: android.content.Context) {
 
     private var masterPassword:String?=null
 
-    private var log = Log.getLogger(AuthenticationManager::class.java)
+    private val KEY_NAME = "APM_FINGERPRINT"
 
-    fun initDropboxClient()
+    private fun initDropboxClient()
     {
         var accessToken = PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.ACCESS_TOKEN, null)
         if (accessToken == null)
@@ -49,12 +52,30 @@ class AuthenticationManager(var context: android.content.Context) {
         }
     }
 
-    fun getMD5EncryptedString(encTarget: String): String {
+    private fun getMD5Hash(encTarget: String): String {
         var mdEnc: MessageDigest? = null
         try {
             mdEnc = MessageDigest.getInstance("MD5")
         } catch (e: NoSuchAlgorithmException) {
-            println("Exception while encrypting to md5")
+        }
+        // Encryption algorithm
+
+        if(mdEnc==null)
+            return ""
+
+        mdEnc.update(encTarget.toByteArray(), 0, encTarget.length)
+        var md5 = BigInteger(1, mdEnc.digest()).toString(34)
+        while (md5.length < 24) {
+            md5 += "0"
+        }
+        return md5
+    }
+
+    private fun getSHA256Hash(encTarget: String): String {
+        var mdEnc: MessageDigest? = null
+        try {
+            mdEnc = MessageDigest.getInstance("SHA-256")
+        } catch (e: NoSuchAlgorithmException) {
         }
         // Encryption algorithm
 
@@ -76,14 +97,13 @@ class AuthenticationManager(var context: android.content.Context) {
 
     fun setMasterPassword(password: String){
         masterPassword = password
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,getMD5EncryptedString(password).substring(2)).apply()
+        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,getSHA256Hash(password).substring(2)).apply()
     }
 
     fun checkMasterPassword(password: String):Boolean
     {
-        var md5Password = getMD5EncryptedString(password).substring(2)
+        val md5Password = getSHA256Hash(password).substring(2)
         if(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,"").equals(md5Password)) {
-            log.debug(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,""))
             masterPassword = password
             return true
         }
@@ -93,7 +113,14 @@ class AuthenticationManager(var context: android.content.Context) {
     fun generatePassword(password: Password):String
     {
         if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return password.prefix.trim()+getMD5EncryptedString(password.label.toLowerCase().trim().replace(" ","")+password.version+masterPassword!!.trim()).substring(0,password.length)
+            return password.prefix.trim()+getMD5Hash(password.label.toLowerCase().trim().replace(" ","")+password.version+masterPassword!!.trim()).substring(0,password.length)
+        return ""
+    }
+
+    fun generatePassword2(password: Password):String
+    {
+        if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
+            return password.prefix.trim()+getSHA256Hash(password.label.toLowerCase().trim().replace(" ","")+password.version+masterPassword!!.trim()).substring(0,password.length)
         return ""
     }
 
@@ -104,19 +131,19 @@ class AuthenticationManager(var context: android.content.Context) {
         {
             override fun doInBackground(vararg p0: Void?): Void?
             {
-                var file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME)
+                val file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME)
 
-                var outputStream = FileOutputStream(file)
+                val outputStream = FileOutputStream(file)
 
                 if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
-                    var downloader = dropboxClient?.files()?.download(Constants.Misc.DROPBOX_FILENAME)
+                    val downloader = dropboxClient?.files()?.download(Constants.Misc.DROPBOX_FILENAME)
                     downloader?.download(outputStream)
                 }
 
-                var reader = JsonReader(FileReader(file))
+                val reader = JsonReader(FileReader(file))
                 passwordList = Gson().fromJson<PasswordList>(reader, PasswordList::class.java)
                 if(passwordList==null)
-                    passwordList = PasswordList(HashMap<String,Password>())
+                    passwordList = PasswordList(HashMap())
                 return null
             }
 
@@ -132,12 +159,12 @@ class AuthenticationManager(var context: android.content.Context) {
 
     }
 
-    inner class PutPaswordListTask(var callback:()->Unit): AsyncTask<Void, Void, Boolean>()
+    inner class PutPaswordListTask(private var callback:()->Unit): AsyncTask<Void, Void, Boolean>()
     {
         override fun doInBackground(vararg p0: Void?): Boolean {
             try {
                 val passwordFileString = Gson().toJson(passwordList)
-                val file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME);
+                val file = File(Environment.getExternalStorageDirectory().toString()+Constants.Misc.LOCAL_FILENAME)
                 file.createNewFile()
                 val fOut = FileOutputStream(file)
                 val outWriter = OutputStreamWriter(fOut)
@@ -146,13 +173,15 @@ class AuthenticationManager(var context: android.content.Context) {
                 fOut.close()
 
                 if (PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
-                    val response = dropboxClient?.files()?.uploadBuilder(Constants.Misc.DROPBOX_FILENAME)?.withMode(WriteMode.OVERWRITE)?.uploadAndFinish(FileInputStream(file))
-                    log.debug("response is {}",response?.rev)
+                    dropboxClient
+                            ?.files()
+                            ?.uploadBuilder(Constants.Misc.DROPBOX_FILENAME)
+                            ?.withMode(WriteMode.OVERWRITE)
+                            ?.uploadAndFinish(FileInputStream(file))
                 }
                 return true
 
             } catch (e:Exception) {
-                log.warn("unable to save password file",e)
             }
             return false
         }
@@ -167,12 +196,12 @@ class AuthenticationManager(var context: android.content.Context) {
         }
     }
 
-    fun addorUpdatePassword(password: Password,callback:()-> Unit)
+    fun addOrUpdatePassword(password: Password, callback:()-> Unit)
     {
         initDropboxClient()
         fun addOrUpdatePasswordCallback()
         {
-            passwordList!!.passwords.put(password.label,password)
+            passwordList!!.passwords[password.label] = password
             PutPaswordListTask(callback).execute()
         }
         loadPasswordList(::addOrUpdatePasswordCallback)
@@ -191,5 +220,45 @@ class AuthenticationManager(var context: android.content.Context) {
             }
         }
         loadPasswordList(::deletePasswordCallback)
+    }
+
+
+    fun createKey() {
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore")
+            keyStore.load(null)
+
+            if (keyStore.containsAlias(KEY_NAME)) {
+                return
+            }
+            val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            keyGenerator.init(KeyGenParameterSpec.Builder(KEY_NAME,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                    .setUserAuthenticationRequired(true)
+                    .setUserAuthenticationValidityDurationSeconds(10)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+                    .build())
+            keyGenerator.generateKey()
+        } catch (e: Exception) {
+
+        }
+    }
+
+    fun isAuthenticated():Boolean {
+        return try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null)
+            val secretKey = keyStore.getKey(KEY_NAME, null) as SecretKey
+            val cipher = Cipher.getInstance(
+                    KeyProperties.KEY_ALGORITHM_AES + "/" + KeyProperties.BLOCK_MODE_CBC + "/"
+                            + KeyProperties.ENCRYPTION_PADDING_PKCS7)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+            cipher.doFinal(byteArrayOf(1,2,3,4))
+            true
+        } catch (e: Exception) {
+            Log.w("APM",e);
+            false
+        }
     }
 }

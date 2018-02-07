@@ -44,7 +44,7 @@ class StartActivity : APMActivity() {
         }
         else
         {
-            if(confirmPassword.text.toString().equals(password.text.toString()))
+            if(confirmPassword.text.toString() == password.text.toString())
             {
                 authenticationManager!!.setMasterPassword(password.text.toString())
                 startActivity(Intent(this,MainActivity::class.java))

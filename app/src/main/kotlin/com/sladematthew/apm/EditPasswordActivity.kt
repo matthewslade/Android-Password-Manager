@@ -2,6 +2,7 @@ package com.sladematthew.apm
 
 import android.os.Bundle
 import android.support.v7.app.AlertDialog
+import android.view.WindowManager
 import android.widget.Toast
 import com.sladematthew.apm.model.Password
 import kotlinx.android.synthetic.main.activity_edit_password.*
@@ -13,6 +14,7 @@ class EditPasswordActivity : APMActivity()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         setContentView(R.layout.activity_edit_password)
         if(intent.hasExtra(Constants.IntentKey.PASSWORD))
             password = intent.getSerializableExtra(Constants.IntentKey.PASSWORD) as Password;
@@ -21,10 +23,10 @@ class EditPasswordActivity : APMActivity()
         plus.setOnClickListener{onPlusClicked()}
         if(password!=null)
         {
-            labelTextView.setText(password!!.label.toString())
-            usernameTextView.setText(password!!.username.toString())
+            labelTextView.setText(password!!.label)
+            usernameTextView.setText(password!!.username)
             lengthTextView.setText(password!!.length.toString())
-            prefixTextView.setText(password!!.prefix.toString())
+            prefixTextView.setText(password!!.prefix)
             versionTextView.setText(password!!.version.toString())
             passwordTextView.text = authenticationManager!!.generatePassword(password!!)
         }
@@ -36,30 +38,30 @@ class EditPasswordActivity : APMActivity()
         }
     }
 
-    fun onPlusClicked()
+    private fun onPlusClicked()
     {
         versionTextView.setText((versionTextView.text.toString().toInt()+1).toString())
     }
 
-    fun onDeleteClicked()
+    private fun onDeleteClicked()
     {
         AlertDialog.Builder(this)
                 .setTitle(R.string.dialog_delete_title)
                 .setMessage(R.string.dialog_delete_message)
-                .setPositiveButton(android.R.string.ok,{dialogInterface, i -> deletePassword()})
-                .setNegativeButton(android.R.string.cancel,{dialogInterface, i -> dialogInterface.dismiss()})
+                .setPositiveButton(android.R.string.ok,{ _, _ -> deletePassword()})
+                .setNegativeButton(android.R.string.cancel,{ dialogInterface, _ -> dialogInterface.dismiss()})
                 .show()
     }
 
-    fun deletePassword()
+    private fun deletePassword()
     {
         authenticationManager!!.deletePassword(password!!,{finish()})
     }
 
-    fun onUpdateButtonClicked()
+    private fun onUpdateButtonClicked()
     {
-        var version = versionTextView.text.toString().toInt()
-        var length = lengthTextView.text.toString().toInt()
+        val version = versionTextView.text.toString().toInt()
+        val length = lengthTextView.text.toString().toInt()
 
         if(version !in 1..9999)
         {
@@ -75,7 +77,7 @@ class EditPasswordActivity : APMActivity()
 
         password = Password(labelTextView.text.toString().toLowerCase().trim().replace(" ",""),version,length,prefixTextView.text.toString(),usernameTextView.text.toString())
         passwordTextView.text = authenticationManager!!.generatePassword(password!!)
-        authenticationManager!!.addorUpdatePassword(password!!,{})
+        authenticationManager!!.addOrUpdatePassword(password!!,{})
     }
 
 
