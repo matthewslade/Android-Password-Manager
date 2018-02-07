@@ -257,7 +257,6 @@ class AuthenticationManager(var context: android.content.Context) {
             cipher.doFinal(byteArrayOf(1,2,3,4))
             true
         } catch (e: Exception) {
-            Log.w("APM",e);
             false
         }
     }
