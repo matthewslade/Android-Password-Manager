@@ -18,6 +18,7 @@ class StartActivity : APMActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setTitle(R.string.title_login)
         setContentView(R.layout.activity_start)
         dropbox.setOnClickListener{ Auth.startOAuth2Authentication(this,Constants.Credentials.APP_KEY)}
         login.setOnClickListener{onLoginButtonClicked()}

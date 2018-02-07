@@ -25,6 +25,7 @@ class ViewPasswordActivity : APMActivity(), View.OnClickListener
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setTitle(R.string.title_view_password)
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         setContentView(R.layout.activity_view_password)
         if(intent.hasExtra(Constants.IntentKey.PASSWORD))
