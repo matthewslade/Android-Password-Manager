@@ -31,14 +31,14 @@ class ViewPasswordActivity : APMActivity(), View.OnClickListener
         if(intent.hasExtra(Constants.IntentKey.PASSWORD))
             password = intent.getSerializableExtra(Constants.IntentKey.PASSWORD) as Password
 
-        if(password!=null)
-        {
-            passwordTextView.text = authenticationManager!!.generatePassword(password!!)
-            password2TextView.text = authenticationManager!!.generatePassword2(password!!)
-            usernameTextView.text = password!!.username
+        password?.also {
+            if(it.algorithm == Constants.Misc.ALGORITHM)
+                passwordTextView.text = authenticationManager!!.generatePassword2(it)
+            else
+                passwordTextView.text = authenticationManager!!.generatePassword(it)
 
+            usernameTextView.text = it.username
             passwordTextView.setOnClickListener(this)
-            password2TextView.setOnClickListener(this)
             usernameTextView.setOnClickListener(this)
         }
     }

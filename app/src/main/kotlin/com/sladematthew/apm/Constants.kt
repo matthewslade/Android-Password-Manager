@@ -17,9 +17,10 @@ class Constants{
 
     object Misc {
         const val DEFAULT_LENGTH = 10
-        const val DEFAULT_PREFIX = "P_"
+        const val DEFAULT_PREFIX = "P."
         const val LOCAL_FILENAME = "/passwords.json"
         const val DROPBOX_FILENAME = "/passwords.json"
+        const val ALGORITHM = "SHA256"
     }
 }
 

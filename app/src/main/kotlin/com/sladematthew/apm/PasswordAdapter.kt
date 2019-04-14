@@ -51,19 +51,16 @@ class PasswordAdapter(var passwords: List<Password>,var onItemClickListener: OnI
         }
     }
 
-    init
-    {
+    init {
         setAndSortData(passwords)
     }
 
-    fun setAndSortData(list:List<Password>)
-    {
-        filtered = list
-        Collections.sort(filtered,{ lhs, rhs -> lhs.label.compareTo(rhs.label)});
+    fun setAndSortData(list:List<Password>) {
+        filtered = list.sortedBy { it.label }
     }
 
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder? {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_password, parent, false))
     }
 
@@ -82,8 +79,7 @@ class PasswordAdapter(var passwords: List<Password>,var onItemClickListener: OnI
 
     inner class ViewHolder(view: View): RecyclerView.ViewHolder(view),View.OnClickListener, View.OnLongClickListener
     {
-        init
-        {
+        init {
             itemView.setOnClickListener(this)
             itemView.setOnLongClickListener(this)
         }
@@ -101,14 +97,13 @@ class PasswordAdapter(var passwords: List<Password>,var onItemClickListener: OnI
         override fun onClick(v: View)
         {
             var pos = layoutPosition
-            if (pos < 0) {
+            if (pos < 0)
                 pos = 0
-            }
             onItemClickListener.onClick(this,filtered!![pos], pos)
         }
     }
 
-    fun matchString(value:String,constraint: CharSequence?):Boolean{
+    fun matchString(value:String,constraint: CharSequence?):Boolean {
         if (TextUtils.isEmpty(value)) {
             return false
         }

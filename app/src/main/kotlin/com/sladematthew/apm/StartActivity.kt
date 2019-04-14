@@ -32,21 +32,16 @@ class StartActivity : APMActivity() {
         checkPermissions()
     }
 
-    fun onLoginButtonClicked()
-    {
-        if(PreferenceManager.getDefaultSharedPreferences(this).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-        {
-            if(authenticationManager!!.checkMasterPassword(password.text.toString()))
-            {
+    fun onLoginButtonClicked() {
+        if(PreferenceManager.getDefaultSharedPreferences(this).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH)) {
+            if(authenticationManager!!.checkMasterPassword(password.text.toString())) {
                 startActivity(Intent(this,MainActivity::class.java))
                 return
             }
             Toast.makeText(this,R.string.error_password_wrong,Toast.LENGTH_LONG).show()
         }
-        else
-        {
-            if(confirmPassword.text.toString() == password.text.toString())
-            {
+        else {
+            if(confirmPassword.text.toString() == password.text.toString()) {
                 authenticationManager!!.setMasterPassword(password.text.toString())
                 startActivity(Intent(this,MainActivity::class.java))
                 return
@@ -56,16 +51,9 @@ class StartActivity : APMActivity() {
 
     }
 
-    fun checkPermissions()
-    {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
-        {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE))
-            {
-
-            }
-            else
-            {
+    fun checkPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE)) {
                 ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE),MY_PERMISSIONS_REQUEST_STORAGE);
             }
         }

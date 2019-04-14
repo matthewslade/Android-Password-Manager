@@ -5,13 +5,13 @@ import android.os.Environment
 import android.preference.PreferenceManager
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import android.util.Log
 import android.widget.Toast
 import com.dropbox.core.DbxRequestConfig
 import com.dropbox.core.android.Auth
 import com.dropbox.core.http.OkHttp3Requestor
 import com.dropbox.core.v2.DbxClientV2
 import com.dropbox.core.v2.files.WriteMode
+import com.github.salomonbrys.kotson.fromJson
 import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
 import com.sladematthew.apm.model.Password
@@ -21,7 +21,6 @@ import java.math.BigInteger
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
-import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -38,26 +37,36 @@ class AuthenticationManager(var context: android.content.Context) {
 
     private fun initDropboxClient()
     {
-        var accessToken = PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.ACCESS_TOKEN, null)
-        if (accessToken == null)
-        {
-            accessToken = Auth.getOAuth2Token()
+        val accessToken = PreferenceManager
+                .getDefaultSharedPreferences(context)
+                .getString(Constants.SharedPrefs.ACCESS_TOKEN, null)
+                ?:Auth.getOAuth2Token()
 
-        }
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.ACCESS_TOKEN, accessToken).apply()
+        PreferenceManager
+                .getDefaultSharedPreferences(context)
+                .edit()
+                .putString(Constants.SharedPrefs.ACCESS_TOKEN, accessToken)
+                .apply()
+
         if (dropboxClient == null)
-        {
-            val requestConfig = DbxRequestConfig.newBuilder("AndroidPasswordManager").withHttpRequestor(OkHttp3Requestor.INSTANCE).build()
-            dropboxClient = DbxClientV2(requestConfig, accessToken)
-        }
+            dropboxClient = DbxClientV2(
+                    DbxRequestConfig
+                            .newBuilder("AndroidPasswordManager")
+                            .withHttpRequestor(
+                                    OkHttp3Requestor(
+                                            OkHttp3Requestor.defaultOkHttpClient()
+                                    )
+                            )
+                            .build(),
+                    accessToken
+            )
     }
 
     private fun getMD5Hash(encTarget: String): String {
         var mdEnc: MessageDigest? = null
         try {
             mdEnc = MessageDigest.getInstance("MD5")
-        } catch (e: NoSuchAlgorithmException) {
-        }
+        } catch (e: NoSuchAlgorithmException) { }
         // Encryption algorithm
 
         if(mdEnc==null)
@@ -90,42 +99,62 @@ class AuthenticationManager(var context: android.content.Context) {
         return md5
     }
 
-    fun clearMasterPassword()
-    {
+    fun clearMasterPassword() {
         masterPassword = ""
     }
 
     fun setMasterPassword(password: String){
         masterPassword = password
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,getSHA256Hash(password).substring(2)).apply()
+        PreferenceManager
+                .getDefaultSharedPreferences(context)
+                .edit()
+                .putString(
+                        Constants.SharedPrefs.MASTER_PASSWORD_HASH,
+                        getSHA256Hash(password).substring(2)
+                )
+                .apply()
     }
 
-    fun checkMasterPassword(password: String):Boolean
-    {
-        val md5Password = getSHA256Hash(password).substring(2)
-        if(PreferenceManager.getDefaultSharedPreferences(context).getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,"").equals(md5Password)) {
+    fun checkMasterPassword(password: String):Boolean {
+        if(PreferenceManager
+                        .getDefaultSharedPreferences(context)
+                        .getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH,"") ==
+                getSHA256Hash(password).substring(2)) {
             masterPassword = password
             return true
         }
         return false
     }
 
-    fun generatePassword(password: Password):String
-    {
+    fun generatePassword(password: Password):String {
         if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return password.prefix.trim()+getMD5Hash(password.label.toLowerCase().trim().replace(" ","")+password.version+masterPassword!!.trim()).substring(0,password.length)
+            return password.prefix.trim() + getMD5Hash(
+                    password
+                            .label
+                            .toLowerCase()
+                            .trim()
+                            .replace(" ","")
+                            + password.version
+                            + masterPassword!!.trim()
+            ).substring(0,password.length)
         return ""
     }
 
-    fun generatePassword2(password: Password):String
-    {
+    fun generatePassword2(password: Password):String {
         if(PreferenceManager.getDefaultSharedPreferences(context).contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return password.prefix.trim()+getSHA256Hash(password.label.toLowerCase().trim().replace(" ","")+password.version+masterPassword!!.trim()).substring(0,password.length)
+            return password.prefix.trim() + getSHA256Hash(
+                    password
+                            .label
+                            .toLowerCase()
+                            .trim()
+                            .replace(" ","")
+                            + password.version
+                            + masterPassword!!.trim()
+            ).substring(0,password.length)
         return ""
     }
 
-    fun loadPasswordList(callback: ()-> Unit)
-    {
+    fun loadPasswordList(callback: ()-> Unit) {
         initDropboxClient()
         class GetPaswordListTask: AsyncTask<Void, Void, Void>()
         {
@@ -139,11 +168,7 @@ class AuthenticationManager(var context: android.content.Context) {
                     val downloader = dropboxClient?.files()?.download(Constants.Misc.DROPBOX_FILENAME)
                     downloader?.download(outputStream)
                 }
-
-                val reader = JsonReader(FileReader(file))
-                passwordList = Gson().fromJson<PasswordList>(reader, PasswordList::class.java)
-                if(passwordList==null)
-                    passwordList = PasswordList(HashMap())
+                passwordList = Gson().fromJson(JsonReader(FileReader(file)))
                 return null
             }
 
@@ -159,8 +184,7 @@ class AuthenticationManager(var context: android.content.Context) {
 
     }
 
-    inner class PutPaswordListTask(private var callback:()->Unit): AsyncTask<Void, Void, Boolean>()
-    {
+    inner class PutPaswordListTask(private var callback:(()->Unit)?): AsyncTask<Void, Void, Boolean>() {
         override fun doInBackground(vararg p0: Void?): Boolean {
             try {
                 val passwordFileString = Gson().toJson(passwordList)
@@ -189,37 +213,29 @@ class AuthenticationManager(var context: android.content.Context) {
         override fun onPostExecute(result: Boolean) {
             if(result) {
                 Toast.makeText(context, R.string.toast_save_success, Toast.LENGTH_LONG).show()
-                callback()
+                callback?.invoke()
             }
             else
                 Toast.makeText(context,R.string.toast_save_error,Toast.LENGTH_LONG).show()
         }
     }
 
-    fun addOrUpdatePassword(password: Password, callback:()-> Unit)
-    {
+    fun addOrUpdatePassword(password: Password, callback:(()-> Unit)? = null) {
         initDropboxClient()
-        fun addOrUpdatePasswordCallback()
-        {
+        loadPasswordList {
             passwordList!!.passwords[password.label] = password
             PutPaswordListTask(callback).execute()
         }
-        loadPasswordList(::addOrUpdatePasswordCallback)
     }
 
-    fun deletePassword(password: Password,callback: () -> Unit)
-    {
+    fun deletePassword(password: Password,callback: () -> Unit) {
         initDropboxClient()
-        fun deletePasswordCallback()
-        {
-            if(passwordList!!.passwords.containsKey(password.label))
-            {
+        loadPasswordList{
+            if(passwordList!!.passwords.containsKey(password.label)) {
                 passwordList!!.passwords.remove(password.label)
-
                 PutPaswordListTask(callback).execute()
             }
         }
-        loadPasswordList(::deletePasswordCallback)
     }
 
 
@@ -228,9 +244,9 @@ class AuthenticationManager(var context: android.content.Context) {
             val keyStore = KeyStore.getInstance("AndroidKeyStore")
             keyStore.load(null)
 
-            if (keyStore.containsAlias(KEY_NAME)) {
+            if (keyStore.containsAlias(KEY_NAME))
                 return
-            }
+
             val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
             keyGenerator.init(KeyGenParameterSpec.Builder(KEY_NAME,
                     KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
@@ -240,24 +256,21 @@ class AuthenticationManager(var context: android.content.Context) {
                     .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
                     .build())
             keyGenerator.generateKey()
-        } catch (e: Exception) {
-
-        }
+        } catch (e: Exception) { }
     }
 
     fun isAuthenticated():Boolean {
         return try {
-            val keyStore = KeyStore.getInstance("AndroidKeyStore");
+            val keyStore = KeyStore.getInstance("AndroidKeyStore")
             keyStore.load(null)
             val secretKey = keyStore.getKey(KEY_NAME, null) as SecretKey
             val cipher = Cipher.getInstance(
-                    KeyProperties.KEY_ALGORITHM_AES + "/" + KeyProperties.BLOCK_MODE_CBC + "/"
+                    KeyProperties.KEY_ALGORITHM_AES + "/"
+                            + KeyProperties.BLOCK_MODE_CBC + "/"
                             + KeyProperties.ENCRYPTION_PADDING_PKCS7)
             cipher.init(Cipher.ENCRYPT_MODE, secretKey)
             cipher.doFinal(byteArrayOf(1,2,3,4))
             true
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { false }
     }
 }

@@ -1,7 +1,6 @@
 package com.sladematthew.apm
 
-import android.app.KeyguardManager
-import android.content.Context
+
 import android.content.Intent
 import android.os.Bundle
 import android.support.v7.widget.DefaultItemAnimator
@@ -55,7 +54,6 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatch
         authenticationManager?.createKey()
         setContentView(R.layout.activity_main)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.itemAnimator = DefaultItemAnimator()
         recyclerView.setHasFixedSize(true)
         recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
         searchBox.addTextChangedListener(this)
@@ -63,8 +61,7 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatch
         loadPasswordList()
     }
 
-    private fun loadPasswordList()
-    {
+    private fun loadPasswordList() {
         fun callback()
         {
             adapter = PasswordAdapter(ArrayList(authenticationManager!!.passwordList!!.passwords.values),this)
@@ -82,11 +79,10 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatch
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode != RESULT_OK) {
             Toast.makeText(this, getString(R.string.authentication_failed), Toast.LENGTH_SHORT).show()
+            return
         }
 
         if(requestCode == REQUESTCODE)
-        {
             startActivity(nextIntent)
-        }
     }
 }
