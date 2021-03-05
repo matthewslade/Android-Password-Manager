@@ -258,19 +258,4 @@ class AuthenticationManager(var context: android.content.Context) {
             keyGenerator.generateKey()
         } catch (e: Exception) { }
     }
-
-    fun isAuthenticated():Boolean {
-        return try {
-            val keyStore = KeyStore.getInstance("AndroidKeyStore")
-            keyStore.load(null)
-            val secretKey = keyStore.getKey(KEY_NAME, null) as SecretKey
-            val cipher = Cipher.getInstance(
-                    KeyProperties.KEY_ALGORITHM_AES + "/"
-                            + KeyProperties.BLOCK_MODE_CBC + "/"
-                            + KeyProperties.ENCRYPTION_PADDING_PKCS7)
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-            cipher.doFinal(byteArrayOf(1,2,3,4))
-            true
-        } catch (e: Exception) { false }
-    }
 }

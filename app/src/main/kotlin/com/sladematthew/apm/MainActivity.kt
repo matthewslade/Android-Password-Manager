@@ -34,19 +34,13 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatch
     override fun onLongClick(viewHolder: PasswordAdapter.ViewHolder, item: Password, position: Int) {
         nextIntent = Intent(this, EditPasswordActivity::class.java)
         nextIntent?.putExtra(Constants.IntentKey.PASSWORD,item)
-        if(authenticationManager!!.isAuthenticated())
-            startActivity(nextIntent)
-        else
-            showAuthenticationScreen()
+        startActivity(nextIntent)
     }
 
     override fun onClick(viewHolder: PasswordAdapter.ViewHolder, item: Password, position: Int) {
         nextIntent = Intent(this, ViewPasswordActivity::class.java)
         nextIntent?.putExtra(Constants.IntentKey.PASSWORD,item)
-        if(authenticationManager!!.isAuthenticated())
-            startActivity(nextIntent)
-        else
-            showAuthenticationScreen()
+        startActivity(nextIntent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
