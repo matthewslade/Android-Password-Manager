@@ -28,7 +28,8 @@ class EditPasswordActivity : APMActivity(), View.OnClickListener
         binding = ActivityEditPasswordBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
-        password = Gson().fromJson(intent.getStringExtra(Constants.IntentKey.PASSWORD)!!)
+        if(intent.hasExtra(Constants.IntentKey.PASSWORD))
+            password = Gson().fromJson(intent.getStringExtra(Constants.IntentKey.PASSWORD)!!)
         binding.updateButton.setOnClickListener{onUpdateButtonClicked()}
         binding.deleteButton.setOnClickListener{onDeleteClicked()}
         binding.plus.setOnClickListener{onPlusClicked()}
