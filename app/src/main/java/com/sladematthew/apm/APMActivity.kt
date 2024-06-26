@@ -1,17 +1,14 @@
 package com.sladematthew.apm
 
-import android.app.KeyguardManager
-import android.content.Context
+import android.app.Activity
 import android.os.Bundle
-import android.preference.PreferenceManager
-import android.support.v7.app.AppCompatActivity
 
 
-open class APMActivity : AppCompatActivity() {
+open class APMActivity : Activity() {
 
     protected val REQUESTCODE = 4566
 
-    protected var authenticationManager: AuthenticationManager?=null
+    protected lateinit var authenticationManager: AuthenticationManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

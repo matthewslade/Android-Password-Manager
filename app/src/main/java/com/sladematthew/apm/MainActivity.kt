@@ -3,15 +3,18 @@ package com.sladematthew.apm
 
 import android.content.Intent
 import android.os.Bundle
-import android.support.v7.widget.DefaultItemAnimator
-import android.support.v7.widget.LinearLayoutManager
 import android.text.Editable
 import android.text.TextWatcher
 import com.sladematthew.apm.model.Password
-import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
-import android.support.v7.widget.DividerItemDecoration
 import android.widget.Toast
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.gson.Gson
+import com.sladematthew.apm.databinding.ActivityMainBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatcher
 {
@@ -33,36 +36,41 @@ class MainActivity: APMActivity(),PasswordAdapter.OnItemClickListener, TextWatch
 
     override fun onLongClick(viewHolder: PasswordAdapter.ViewHolder, item: Password, position: Int) {
         nextIntent = Intent(this, EditPasswordActivity::class.java)
-        nextIntent?.putExtra(Constants.IntentKey.PASSWORD,item)
+        nextIntent?.putExtra(Constants.IntentKey.PASSWORD,Gson().toJson(item))
         startActivity(nextIntent)
     }
 
     override fun onClick(viewHolder: PasswordAdapter.ViewHolder, item: Password, position: Int) {
         nextIntent = Intent(this, ViewPasswordActivity::class.java)
-        nextIntent?.putExtra(Constants.IntentKey.PASSWORD,item)
+        nextIntent?.putExtra(Constants.IntentKey.PASSWORD, Gson().toJson(item))
         startActivity(nextIntent)
     }
+
+    private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         authenticationManager?.createKey()
-        setContentView(R.layout.activity_main)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.setHasFixedSize(true)
-        recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
-        searchBox.addTextChangedListener(this)
-        addPassword.setOnClickListener{startActivity(Intent(this, EditPasswordActivity::class.java))}
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        binding.recyclerView.setHasFixedSize(true)
+        binding.recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
+        binding.searchBox.addTextChangedListener(this)
+        binding.addPassword.setOnClickListener{startActivity(Intent(this, EditPasswordActivity::class.java))}
         loadPasswordList()
     }
 
     private fun loadPasswordList() {
-        fun callback()
-        {
-            adapter = PasswordAdapter(ArrayList(authenticationManager!!.passwordList!!.passwords.values),this)
-            recyclerView.adapter = adapter;
-            adapter?.onItemClickListener = this;
+        GlobalScope.launch(Dispatchers.IO){
+            authenticationManager.loadPasswordList()
+            runOnUiThread {
+                adapter = PasswordAdapter(ArrayList(authenticationManager!!.passwordList!!.passwords.values),this@MainActivity)
+                binding.recyclerView.adapter = adapter
+                adapter?.onItemClickListener = this@MainActivity
+            }
         }
-        authenticationManager?.loadPasswordList(::callback)
+
     }
 
     override fun onResume() {

@@ -1,17 +1,15 @@
 package com.sladematthew.apm
 
-import android.support.v7.widget.RecyclerView
 import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.AdapterView
 import android.widget.Filter
 import android.widget.Filterable
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
 import com.sladematthew.apm.model.Password
 
-import com.sladematthew.apm.model.PasswordList
-import kotlinx.android.synthetic.main.item_password.view.*
 import java.util.*
 import java.util.regex.Pattern
 
@@ -19,17 +17,16 @@ class PasswordAdapter(var passwords: List<Password>,var onItemClickListener: OnI
 
     var filtered:List<Password>?=null
 
-
-    override fun getFilter(): Filter? {
+    override fun getFilter(): Filter {
         return object :Filter()
         {
-            override fun publishResults(constraint: CharSequence?, results: Filter.FilterResults?) {
+            override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
                 setAndSortData(results!!.values as ArrayList<Password>)
                 notifyDataSetChanged()
             }
 
-            override fun performFiltering(constraint: CharSequence?): Filter.FilterResults? {
-                val filterResults = Filter.FilterResults()
+            override fun performFiltering(constraint: CharSequence?): FilterResults? {
+                val filterResults = FilterResults()
                 val tmp = ArrayList<Password>()
                 if (constraint == null || "" == constraint)
                 {
@@ -65,7 +62,7 @@ class PasswordAdapter(var passwords: List<Password>,var onItemClickListener: OnI
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        (holder as ViewHolder).itemView.name.text = filtered!![position].label
+        (holder as ViewHolder).itemView.findViewById<TextView>(R.id.name).text = filtered!![position].label
     }
 
     override fun getItemCount(): Int {
