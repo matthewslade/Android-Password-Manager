@@ -1,10 +1,10 @@
 package com.sladematthew.apm
 
-import android.app.Activity
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 
 
-open class APMActivity : Activity() {
+open class APMActivity : AppCompatActivity() {
 
     protected val REQUESTCODE = 4566
 

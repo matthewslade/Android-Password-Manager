@@ -8,11 +8,15 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.sladematthew.apm.databinding.ActivityStartBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import com.sladematthew.apm.viewmodel.AuthState
+import com.sladematthew.apm.viewmodel.StartViewModel
 import kotlinx.coroutines.launch
 
 class StartActivity : APMActivity() {
@@ -23,59 +27,117 @@ class StartActivity : APMActivity() {
 
     private lateinit var binding: ActivityStartBinding
 
+    private val viewModel: StartViewModel by viewModels {
+        (application as APMApplication).viewModelFactory
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setTitle(R.string.title_login)
         binding = ActivityStartBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.dropbox.setOnClickListener{
-            GlobalScope.launch(Dispatchers.IO){
-                val pendingIntent = authenticationManager.authRepository.signInGoogle()
-                runOnUiThread{
-                    try {
-                        this@StartActivity.startIntentSenderForResult(
-                            pendingIntent,
-                            REQUEST_CODE_GOOGLE_SIGN_IN,
-                            null,
-                            0,
-                            0,
-                            0,
-                            null
-                        )
-                    } catch (e: SendIntentException) {
-                        Log.e("APM", "Google Sign-in failed")
+
+        binding.dropbox.setOnClickListener {
+            viewModel.initiateGoogleSignIn()
+        }
+        binding.login.setOnClickListener { onLoginButtonClicked() }
+
+        setupObservers()
+        viewModel.checkAuthStatus()
+        checkPermissions()
+    }
+
+    private fun setupObservers() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.authState.collect { state ->
+                        handleAuthState(state)
+                    }
+                }
+
+                launch {
+                    viewModel.hasMasterPassword.collect { hasMasterPassword ->
+                        binding.confirmPassword.visibility = if (hasMasterPassword) View.GONE else View.VISIBLE
+                    }
+                }
+
+                launch {
+                    viewModel.hasDriveAccess.collect { hasDriveAccess ->
+                        binding.dropbox.visibility = if (hasDriveAccess) View.GONE else View.VISIBLE
                     }
                 }
             }
         }
-        binding.login.setOnClickListener{ onLoginButtonClicked() }
+    }
 
-        if(authenticationManager.sharedPreferences.contains(Constants.SharedPrefs.ACCESS_TOKEN)) {
-            binding.dropbox.visibility = View.GONE
+    private fun handleAuthState(state: AuthState) {
+        when (state) {
+            is AuthState.GoogleSignInPending -> {
+                try {
+                    startIntentSenderForResult(
+                        state.intentSender,
+                        REQUEST_CODE_GOOGLE_SIGN_IN,
+                        null,
+                        0,
+                        0,
+                        0,
+                        null
+                    )
+                } catch (e: SendIntentException) {
+                    Log.e("APM", "Google Sign-in failed", e)
+                    Toast.makeText(this, "Google Sign-in failed", Toast.LENGTH_SHORT).show()
+                }
+                viewModel.resetAuthState()
+            }
+            is AuthState.GoogleDriveAuthPending -> {
+                try {
+                    startIntentSenderForResult(
+                        state.intentSender,
+                        REQUEST_CODE_GOOGLE_DRIVE_AUTH,
+                        null,
+                        0,
+                        0,
+                        0,
+                        null
+                    )
+                } catch (e: SendIntentException) {
+                    Log.e("APM", "Google Drive auth failed", e)
+                    Toast.makeText(this, "Google Drive auth failed", Toast.LENGTH_SHORT).show()
+                }
+                viewModel.resetAuthState()
+            }
+            is AuthState.GoogleSignedIn -> {
+                Toast.makeText(this, "Signed in as ${state.email}", Toast.LENGTH_LONG).show()
+            }
+            is AuthState.DriveLoaded -> {
+                Toast.makeText(this, "Drive loaded successfully", Toast.LENGTH_LONG).show()
+            }
+            is AuthState.Error -> {
+                Toast.makeText(this, state.message, Toast.LENGTH_SHORT).show()
+                viewModel.resetAuthState()
+            }
+            else -> {
+                // Idle or Loading states
+            }
         }
-
-        if(authenticationManager.sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            binding.confirmPassword.visibility = View.GONE
-        checkPermissions()
     }
 
     fun onLoginButtonClicked() {
-        if(authenticationManager.sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH)) {
-            if(authenticationManager.checkMasterPassword(binding.password.text.toString())) {
-                startActivity(Intent(this,MainActivity::class.java))
+        if (viewModel.hasMasterPassword.value) {
+            if (viewModel.checkMasterPassword(binding.password.text.toString())) {
+                startActivity(Intent(this, MainActivity::class.java))
                 return
             }
-            Toast.makeText(this,R.string.error_password_wrong,Toast.LENGTH_LONG).show()
-        }
-        else {
-            if(binding.confirmPassword.text.toString() == binding.password.text.toString()) {
-                authenticationManager.setMasterPassword(binding.password.text.toString())
-                startActivity(Intent(this,MainActivity::class.java))
+            Toast.makeText(this, R.string.error_password_wrong, Toast.LENGTH_LONG).show()
+        } else {
+            if (binding.confirmPassword.text.toString() == binding.password.text.toString()) {
+                viewModel.setMasterPassword(binding.password.text.toString())
+                startActivity(Intent(this, MainActivity::class.java))
                 return
             }
-            Toast.makeText(this,R.string.error_password_mismatch,Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.error_password_mismatch, Toast.LENGTH_LONG).show()
         }
-
     }
 
     fun checkPermissions() {
@@ -88,30 +150,12 @@ class StartActivity : APMActivity() {
 
     override fun onResume() {
         super.onResume()
-        authenticationManager.clearMasterPassword()
+        viewModel.clearMasterPassword()
         binding.password.setText("")
         binding.confirmPassword.setText("")
 
-        GlobalScope.launch(Dispatchers.IO) {
-            authenticationManager.loadDrive()
-            runOnUiThread {
-                if(authenticationManager.sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-                    binding.confirmPassword.visibility = View.GONE
-
-                if(authenticationManager.drivePasswords.drive!=null)
-                {
-                    binding.dropbox.visibility = View.GONE
-                }
-            }
-        }
-
-        if(authenticationManager.sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            binding.confirmPassword.visibility = View.GONE
-
-        if(authenticationManager.sharedPreferences.getString(Constants.SharedPrefs.ACCESS_TOKEN, null) != null)
-        {
-            binding.dropbox.visibility = View.GONE
-        }
+        // Check auth status and Drive connection without triggering a new load
+        viewModel.checkAuthStatus()
     }
 
     public override fun onActivityResult(
@@ -121,37 +165,12 @@ class StartActivity : APMActivity() {
     ) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == RESULT_OK) {
-            if (requestCode == REQUEST_CODE_GOOGLE_SIGN_IN) {
-                GlobalScope.launch(Dispatchers.IO) {
-                    data?.also {
-                        val result = authenticationManager.authRepository.getSignInResult(it)
-                        runOnUiThread { Toast.makeText(this@StartActivity,"Signed in as ${result.email}",Toast.LENGTH_LONG).show()}
-                        authenticationManager.authRepository.authorizeGoogleDrive().pendingIntent?.intentSender?.also {
-                            runOnUiThread {
-                                try {
-                                    this@StartActivity.startIntentSenderForResult(
-                                        it,
-                                        REQUEST_CODE_GOOGLE_DRIVE_AUTH,
-                                        null,
-                                        0,
-                                        0,
-                                        0,
-                                        null
-                                    )
-                                } catch (e: SendIntentException) {
-                                    Log.e("APM", "Google Sign-in failed")
-                                }
-                            }
-                        }?: run { authenticationManager.loadDrive() }
-                    }
+            when (requestCode) {
+                REQUEST_CODE_GOOGLE_SIGN_IN -> {
+                    data?.let { viewModel.handleGoogleSignInResult(it) }
                 }
-            }
-            if (requestCode == REQUEST_CODE_GOOGLE_DRIVE_AUTH) {
-                GlobalScope.launch(Dispatchers.IO) {
-                    data?.let { authenticationManager.authRepository.authorizeGoogleDriveResult(it)}?.accessToken?.also {
-                        authenticationManager.loadDrive()
-                        runOnUiThread { Toast.makeText(this@StartActivity,"load drive with access token $it",Toast.LENGTH_LONG).show()}
-                    }
+                REQUEST_CODE_GOOGLE_DRIVE_AUTH -> {
+                    data?.let { viewModel.handleGoogleDriveAuthResult(it) }
                 }
             }
         }
