@@ -17,13 +17,10 @@ class ViewPasswordViewModel(
     private val _generatedPassword = MutableStateFlow<String>("")
     val generatedPassword: StateFlow<String> = _generatedPassword.asStateFlow()
 
-    fun setPassword(password: Password, algorithm: String) {
+    fun setPassword(password: Password) {
         _password.value = password
-        // Use algorithm to determine which generation method to use
-        _generatedPassword.value = if (algorithm == "SHA256") {
-            repository.generatePassword2(password)
-        } else {
-            repository.generatePassword(password)
-        }
+        // Use the unified password generation method which automatically determines
+        // the correct algorithm from the password model (backward compatible)
+        _generatedPassword.value = repository.generatePasswordFromModel(password)
     }
 }

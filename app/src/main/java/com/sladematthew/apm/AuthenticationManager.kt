@@ -92,30 +92,40 @@ class AuthenticationManager(var context: Context) {
     }
 
     fun generatePassword(password: Password):String {
-        if(sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return password.prefix.trim() + getMD5Hash(
-                    password
-                            .label
+        if(sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH)) {
+            val label = password.label ?: return ""
+            val version = password.version ?: 1
+            val length = password.length ?: 10
+            val prefix = password.prefix ?: ""
+
+            return prefix.trim() + getMD5Hash(
+                    label
                             .toLowerCase()
                             .trim()
                             .replace(" ","")
-                            + password.version
+                            + version
                             + masterPassword!!.trim()
-            ).substring(0,password.length)
+            ).substring(0,length)
+        }
         return ""
     }
 
     fun generatePassword2(password: Password):String {
-        if(sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return password.prefix.trim() + getSHA256Hash(
-                    password
-                            .label
+        if(sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH)) {
+            val label = password.label ?: return ""
+            val version = password.version ?: 1
+            val length = password.length ?: 10
+            val prefix = password.prefix ?: ""
+
+            return prefix.trim() + getSHA256Hash(
+                    label
                             .toLowerCase()
                             .trim()
                             .replace(" ","")
-                            + password.version
+                            + version
                             + masterPassword!!.trim()
-            ).substring(0,password.length)
+            ).substring(0,length)
+        }
         return ""
     }
 
@@ -137,15 +147,17 @@ class AuthenticationManager(var context: Context) {
     }
 
     fun addOrUpdatePassword(password: Password, callback:(()-> Unit)? = null) {
+        val label = password.label ?: return
         syncPasswordList {
-            passwordList!!.passwords[password.label] = password
+            passwordList!!.passwords[label] = password
         }
     }
 
     fun deletePassword(password: Password,callback: () -> Unit) {
+        val label = password.label ?: return
         syncPasswordList{
-            if(passwordList!!.passwords.containsKey(password.label)) {
-                passwordList!!.passwords.remove(password.label)
+            if(passwordList!!.passwords.containsKey(label)) {
+                passwordList!!.passwords.remove(label)
             }
         }
     }

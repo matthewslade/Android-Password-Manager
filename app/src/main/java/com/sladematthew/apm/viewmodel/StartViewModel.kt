@@ -37,7 +37,10 @@ class StartViewModel(
 
     fun checkAuthStatus() {
         _hasMasterPassword.value = passwordRepository.hasMasterPassword()
-        _hasDriveAccess.value = passwordRepository.hasDriveConnection()
+        // Check drive connection in a coroutine since it's now suspend
+        viewModelScope.launch {
+            _hasDriveAccess.value = passwordRepository.hasDriveConnection()
+        }
     }
 
     fun clearMasterPassword() {

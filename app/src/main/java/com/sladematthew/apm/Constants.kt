@@ -14,7 +14,9 @@ class Constants{
         const val DEFAULT_LENGTH = 10
         const val DEFAULT_PREFIX = "P."
         const val LOCAL_FILENAME = "passwords.json"
-        const val ALGORITHM = "SHA256"
+        const val ALGORITHM = "PBKDF2"  // Default for new passwords
+        const val ALGORITHM_LEGACY_SHA256 = "SHA256"
+        const val ALGORITHM_LEGACY_MD5 = "MD5"
     }
 }
 

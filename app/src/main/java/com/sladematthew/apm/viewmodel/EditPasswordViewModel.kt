@@ -31,11 +31,11 @@ class EditPasswordViewModel(
 
     fun setPassword(password: Password) {
         _password.value = password
-        _generatedPassword.value = repository.generatePassword2(password)
+        _generatedPassword.value = repository.generatePasswordFromModel(password)
     }
 
     fun generatePassword(password: Password) {
-        _generatedPassword.value = repository.generatePassword2(password)
+        _generatedPassword.value = repository.generatePasswordFromModel(password)
     }
 
     fun addOrUpdatePassword(password: Password) {

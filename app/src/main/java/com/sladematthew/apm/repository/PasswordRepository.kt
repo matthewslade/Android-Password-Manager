@@ -1,7 +1,6 @@
 package com.sladematthew.apm.repository
 
 import android.content.Context
-import android.content.SharedPreferences
 import com.github.salomonbrys.kotson.fromJson
 import com.google.gson.Gson
 import com.sladematthew.apm.AuthRepository
@@ -9,20 +8,19 @@ import com.sladematthew.apm.Constants
 import com.sladematthew.apm.DrivePasswords
 import com.sladematthew.apm.model.Password
 import com.sladematthew.apm.model.PasswordList
+import com.sladematthew.apm.security.PasswordGenerator
+import com.sladematthew.apm.security.SecureStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.math.BigInteger
-import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException
 
 class PasswordRepository(context: Context) {
 
     private val authRepository = AuthRepository(context)
     private val drivePasswords = DrivePasswords(context)
-    private val sharedPreferences: SharedPreferences =
-        context.getSharedPreferences("com.sladematthew.apm", Context.MODE_PRIVATE)
+    private val secureStorage = SecureStorage(context)
+    private val passwordGenerator = PasswordGenerator()
 
     // Thread-safe password list access
     private val passwordListMutex = Mutex()
@@ -39,68 +37,36 @@ class PasswordRepository(context: Context) {
         _passwordList = list
     }
 
-    /**
-     * LEGACY: MD5 hash function - preserved for backward compatibility
-     * DO NOT use for new password generation
-     */
-    private fun getMD5Hash(encTarget: String): String {
-        var mdEnc: MessageDigest? = null
-        try {
-            mdEnc = MessageDigest.getInstance("MD5")
-        } catch (e: NoSuchAlgorithmException) {
-        }
-
-        if (mdEnc == null)
-            return ""
-
-        mdEnc.update(encTarget.toByteArray(), 0, encTarget.length)
-        var md5 = BigInteger(1, mdEnc.digest()).toString(34)
-        while (md5.length < 24) {
-            md5 += "0"
-        }
-        return md5
-    }
-
-    /**
-     * SHA-256 hash function for password generation
-     */
-    private fun getSHA256Hash(encTarget: String): String {
-        var mdEnc: MessageDigest? = null
-        try {
-            mdEnc = MessageDigest.getInstance("SHA-256")
-        } catch (e: NoSuchAlgorithmException) {
-        }
-
-        if (mdEnc == null)
-            return ""
-
-        mdEnc.update(encTarget.toByteArray(), 0, encTarget.length)
-        var md5 = BigInteger(1, mdEnc.digest()).toString(34)
-        while (md5.length < 24) {
-            md5 += "0"
-        }
-        return md5
-    }
-
     fun clearMasterPassword() {
         masterPassword = ""
     }
 
     fun setMasterPassword(password: String) {
         masterPassword = password
-        sharedPreferences
-            .edit()
-            .putString(
-                Constants.SharedPrefs.MASTER_PASSWORD_HASH,
-                getSHA256Hash(password).substring(2)
-            )
-            .apply()
+        // Store hash using SHA-256 for master password verification
+        val hash = passwordGenerator.generatePassword(
+            PasswordGenerator.ALGORITHM_SHA256,
+            "",
+            0,
+            32,
+            "",
+            password
+        )
+        secureStorage.putString(Constants.SharedPrefs.MASTER_PASSWORD_HASH, hash.substring(2))
     }
 
     fun checkMasterPassword(password: String): Boolean {
-        if (sharedPreferences.getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH, "") ==
-            getSHA256Hash(password).substring(2)
-        ) {
+        val storedHash = secureStorage.getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH, "")
+        val inputHash = passwordGenerator.generatePassword(
+            PasswordGenerator.ALGORITHM_SHA256,
+            "",
+            0,
+            32,
+            "",
+            password
+        ).substring(2)
+
+        if (storedHash == inputHash) {
             masterPassword = password
             return true
         }
@@ -108,38 +74,74 @@ class PasswordRepository(context: Context) {
     }
 
     /**
-     * LEGACY: Generate password using MD5 hash
-     * Preserved for backward compatibility with existing passwords
+     * Generate password using the algorithm specified in the Password object
+     * Supports backward compatibility with MD5 and SHA-256, and modern Argon2id
      */
-    fun generatePassword(password: Password): String {
-        if (sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return password.prefix.trim() + getMD5Hash(
-                password
-                    .label
-                    .toLowerCase()
-                    .trim()
-                    .replace(" ", "")
-                        + password.version
-                        + masterPassword!!.trim()
-            ).substring(0, password.length)
-        return ""
+    fun generatePasswordFromModel(password: Password): String {
+        if (!hasMasterPassword() || masterPassword == null) return ""
+
+        val algorithm = password.algorithm ?: Constants.Misc.ALGORITHM_LEGACY_SHA256
+        val label = password.label ?: return ""
+        val version = password.version ?: 1
+        val length = password.length ?: Constants.Misc.DEFAULT_LENGTH
+        val prefix = password.prefix ?: ""
+
+        return passwordGenerator.generatePassword(
+            algorithm,
+            label,
+            version,
+            length,
+            prefix,
+            masterPassword!!
+        )
     }
 
     /**
-     * Generate password using SHA-256 hash
+     * LEGACY: Generate password using MD5 hash
+     * Preserved for backward compatibility with existing passwords
+     * @deprecated Use generatePasswordFromModel instead
      */
+    @Deprecated("Use generatePasswordFromModel instead")
+    fun generatePassword(password: Password): String {
+        if (!hasMasterPassword() || masterPassword == null) return ""
+
+        val label = password.label ?: return ""
+        val version = password.version ?: 1
+        val length = password.length ?: Constants.Misc.DEFAULT_LENGTH
+        val prefix = password.prefix ?: ""
+
+        return passwordGenerator.generatePassword(
+            PasswordGenerator.ALGORITHM_MD5,
+            label,
+            version,
+            length,
+            prefix,
+            masterPassword!!
+        )
+    }
+
+    /**
+     * LEGACY: Generate password using SHA-256 hash
+     * Preserved for backward compatibility
+     * @deprecated Use generatePasswordFromModel instead
+     */
+    @Deprecated("Use generatePasswordFromModel instead")
     fun generatePassword2(password: Password): String {
-        if (sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH))
-            return password.prefix.trim() + getSHA256Hash(
-                password
-                    .label
-                    .toLowerCase()
-                    .trim()
-                    .replace(" ", "")
-                        + password.version
-                        + masterPassword!!.trim()
-            ).substring(0, password.length)
-        return ""
+        if (!hasMasterPassword() || masterPassword == null) return ""
+
+        val label = password.label ?: return ""
+        val version = password.version ?: 1
+        val length = password.length ?: Constants.Misc.DEFAULT_LENGTH
+        val prefix = password.prefix ?: ""
+
+        return passwordGenerator.generatePassword(
+            PasswordGenerator.ALGORITHM_SHA256,
+            label,
+            version,
+            length,
+            prefix,
+            masterPassword!!
+        )
     }
 
     suspend fun loadDrive(): Boolean {
@@ -157,9 +159,10 @@ class PasswordRepository(context: Context) {
 
     suspend fun addOrUpdatePassword(password: Password) {
         withContext(Dispatchers.IO) {
+            val label = password.label ?: return@withContext
             syncPasswordList {
                 passwordListMutex.withLock {
-                    _passwordList!!.passwords[password.label] = password
+                    _passwordList!!.passwords[label] = password
                 }
             }
         }
@@ -167,10 +170,11 @@ class PasswordRepository(context: Context) {
 
     suspend fun deletePassword(password: Password) {
         withContext(Dispatchers.IO) {
+            val label = password.label ?: return@withContext
             syncPasswordList {
                 passwordListMutex.withLock {
-                    if (_passwordList!!.passwords.containsKey(password.label)) {
-                        _passwordList!!.passwords.remove(password.label)
+                    if (_passwordList!!.passwords.containsKey(label)) {
+                        _passwordList!!.passwords.remove(label)
                     }
                 }
             }
@@ -186,10 +190,20 @@ class PasswordRepository(context: Context) {
     }
 
     fun hasMasterPassword(): Boolean {
-        return sharedPreferences.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH)
+        return secureStorage.contains(Constants.SharedPrefs.MASTER_PASSWORD_HASH)
     }
 
-    fun hasDriveConnection(): Boolean {
-        return drivePasswords.drive != null
+    suspend fun hasDriveConnection(): Boolean {
+        // First check if we have the drive object
+        if (drivePasswords.drive != null) return true
+
+        // If not, check if Firebase has a signed-in user and try to load drive
+        val isSignedIn = authRepository.isSignedIn()
+        if (isSignedIn) {
+            drivePasswords.drive = authRepository.getGoogleDrive()
+            return drivePasswords.drive != null
+        }
+
+        return false
     }
 }

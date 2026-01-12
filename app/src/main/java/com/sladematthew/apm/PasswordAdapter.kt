@@ -36,7 +36,7 @@ class PasswordAdapter(var passwords: List<Password>,var onItemClickListener: OnI
                 {
                     for (item in passwords)
                     {
-                        if (matchString(item.label, constraint))
+                        if (matchString(item.label ?: "", constraint))
                             tmp.add(item)
                     }
                 }
