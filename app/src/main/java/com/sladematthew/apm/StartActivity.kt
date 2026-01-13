@@ -9,6 +9,9 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,16 +21,30 @@ import com.sladematthew.apm.ui.screens.StartScreen
 import com.sladematthew.apm.ui.theme.PasswordManagerTheme
 import com.sladematthew.apm.viewmodel.AuthState
 import com.sladematthew.apm.viewmodel.StartViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class StartActivity : APMActivity() {
 
     val MY_PERMISSIONS_REQUEST_STORAGE = 12
-    val REQUEST_CODE_GOOGLE_SIGN_IN = 14
-    val REQUEST_CODE_GOOGLE_DRIVE_AUTH = 15
 
-    private val viewModel: StartViewModel by viewModels {
-        (application as APMApplication).viewModelFactory
-    }
+    private val viewModel: StartViewModel by viewModels()
+
+    // Modern Activity Result API launcher for Google Sign-In
+    private val googleSignInLauncher: ActivityResultLauncher<IntentSenderRequest> =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.let { viewModel.handleGoogleSignInResult(it) }
+            }
+        }
+
+    // Modern Activity Result API launcher for Google Drive authorization
+    private val googleDriveAuthLauncher: ActivityResultLauncher<IntentSenderRequest> =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.let { viewModel.handleGoogleDriveAuthResult(it) }
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +54,7 @@ class StartActivity : APMActivity() {
                 val hasMasterPassword by viewModel.hasMasterPassword.collectAsState()
                 val hasDriveAccess by viewModel.hasDriveAccess.collectAsState()
                 val authState by viewModel.authState.collectAsState()
+                val passwordFieldsCleared by viewModel.passwordFieldsCleared.collectAsState()
 
                 // Handle auth state
                 when (authState) {
@@ -73,6 +91,10 @@ class StartActivity : APMActivity() {
                     hasMasterPassword = hasMasterPassword,
                     hasDriveAccess = hasDriveAccess,
                     authState = authState,
+                    passwordFieldsCleared = passwordFieldsCleared,
+                    onPasswordFieldsClearedAcknowledged = {
+                        viewModel.resetPasswordFieldsClearedState()
+                    },
                     onLoginClick = { password, confirmPassword ->
                         onLoginButtonClicked(password, confirmPassword)
                     },
@@ -89,15 +111,8 @@ class StartActivity : APMActivity() {
 
     private fun handleGoogleSignInPending(intentSender: IntentSender) {
         try {
-            startIntentSenderForResult(
-                intentSender,
-                REQUEST_CODE_GOOGLE_SIGN_IN,
-                null,
-                0,
-                0,
-                0,
-                null
-            )
+            val request = IntentSenderRequest.Builder(intentSender).build()
+            googleSignInLauncher.launch(request)
         } catch (e: SendIntentException) {
             Log.e("APM", "Google Sign-in failed", e)
             Toast.makeText(this, "Google Sign-in failed", Toast.LENGTH_SHORT).show()
@@ -107,15 +122,8 @@ class StartActivity : APMActivity() {
 
     private fun handleGoogleDriveAuthPending(intentSender: IntentSender) {
         try {
-            startIntentSenderForResult(
-                intentSender,
-                REQUEST_CODE_GOOGLE_DRIVE_AUTH,
-                null,
-                0,
-                0,
-                0,
-                null
-            )
+            val request = IntentSenderRequest.Builder(intentSender).build()
+            googleDriveAuthLauncher.launch(request)
         } catch (e: SendIntentException) {
             Log.e("APM", "Google Drive auth failed", e)
             Toast.makeText(this, "Google Drive auth failed", Toast.LENGTH_SHORT).show()
@@ -151,24 +159,7 @@ class StartActivity : APMActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.clearMasterPassword()
+        viewModel.clearPasswordFields()
         viewModel.checkAuthStatus()
-    }
-
-    public override fun onActivityResult(
-        requestCode: Int,
-        resultCode: Int,
-        data: Intent?
-    ) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == RESULT_OK) {
-            when (requestCode) {
-                REQUEST_CODE_GOOGLE_SIGN_IN -> {
-                    data?.let { viewModel.handleGoogleSignInResult(it) }
-                }
-                REQUEST_CODE_GOOGLE_DRIVE_AUTH -> {
-                    data?.let { viewModel.handleGoogleDriveAuthResult(it) }
-                }
-            }
-        }
     }
 }

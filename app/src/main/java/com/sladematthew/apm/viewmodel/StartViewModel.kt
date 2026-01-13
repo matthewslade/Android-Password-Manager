@@ -6,10 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sladematthew.apm.AuthRepository
 import com.sladematthew.apm.repository.PasswordRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class AuthState {
     object Idle : AuthState()
@@ -21,7 +23,8 @@ sealed class AuthState {
     data class Error(val message: String) : AuthState()
 }
 
-class StartViewModel(
+@HiltViewModel
+class StartViewModel @Inject constructor(
     private val passwordRepository: PasswordRepository,
     private val authRepository: AuthRepository
 ) : ViewModel() {
@@ -34,6 +37,18 @@ class StartViewModel(
 
     private val _hasDriveAccess = MutableStateFlow(false)
     val hasDriveAccess: StateFlow<Boolean> = _hasDriveAccess.asStateFlow()
+
+    // Password field state for clearing on resume
+    private val _passwordFieldsCleared = MutableStateFlow(false)
+    val passwordFieldsCleared: StateFlow<Boolean> = _passwordFieldsCleared.asStateFlow()
+
+    fun clearPasswordFields() {
+        _passwordFieldsCleared.value = true
+    }
+
+    fun resetPasswordFieldsClearedState() {
+        _passwordFieldsCleared.value = false
+    }
 
     fun checkAuthStatus() {
         _hasMasterPassword.value = passwordRepository.hasMasterPassword()

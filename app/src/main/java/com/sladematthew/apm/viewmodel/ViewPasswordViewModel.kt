@@ -3,11 +3,14 @@ package com.sladematthew.apm.viewmodel
 import androidx.lifecycle.ViewModel
 import com.sladematthew.apm.model.Password
 import com.sladematthew.apm.repository.PasswordRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
 
-class ViewPasswordViewModel(
+@HiltViewModel
+class ViewPasswordViewModel @Inject constructor(
     private val repository: PasswordRepository
 ) : ViewModel() {
 

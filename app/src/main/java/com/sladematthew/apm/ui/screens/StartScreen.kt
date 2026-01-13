@@ -24,6 +24,8 @@ fun StartScreen(
     hasMasterPassword: Boolean,
     hasDriveAccess: Boolean,
     authState: AuthState,
+    passwordFieldsCleared: Boolean,
+    onPasswordFieldsClearedAcknowledged: () -> Unit,
     onLoginClick: (password: String, confirmPassword: String) -> Unit,
     onGoogleSignInClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -32,6 +34,17 @@ fun StartScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+
+    // Clear password fields when requested
+    LaunchedEffect(passwordFieldsCleared) {
+        if (passwordFieldsCleared) {
+            password = ""
+            confirmPassword = ""
+            passwordVisible = false
+            confirmPasswordVisible = false
+            onPasswordFieldsClearedAcknowledged()
+        }
+    }
 
     Scaffold(
         topBar = {

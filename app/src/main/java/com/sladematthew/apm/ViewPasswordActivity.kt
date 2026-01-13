@@ -13,15 +13,14 @@ import com.sladematthew.apm.model.Password
 import com.sladematthew.apm.ui.screens.ViewPasswordScreen
 import com.sladematthew.apm.ui.theme.PasswordManagerTheme
 import com.sladematthew.apm.viewmodel.ViewPasswordViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
-
+@AndroidEntryPoint
 class ViewPasswordActivity : APMActivity() {
 
     var password: Password? = null
 
-    private val viewModel: ViewPasswordViewModel by viewModels {
-        (application as APMApplication).viewModelFactory
-    }
+    private val viewModel: ViewPasswordViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

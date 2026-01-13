@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sladematthew.apm.model.Password
 import com.sladematthew.apm.repository.PasswordRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class PasswordOperationState {
     object Idle : PasswordOperationState()
@@ -16,7 +18,8 @@ sealed class PasswordOperationState {
     data class Error(val message: String) : PasswordOperationState()
 }
 
-class EditPasswordViewModel(
+@HiltViewModel
+class EditPasswordViewModel @Inject constructor(
     private val repository: PasswordRepository
 ) : ViewModel() {
 

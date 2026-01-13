@@ -45,7 +45,7 @@ class PasswordRepository(context: Context) {
         masterPassword = password
         // Store hash using SHA-256 for master password verification
         val hash = passwordGenerator.generatePassword(
-            PasswordGenerator.ALGORITHM_SHA256,
+            PasswordGenerator.ALGORITHM_PBKDF2,
             "",
             0,
             32,
@@ -58,7 +58,7 @@ class PasswordRepository(context: Context) {
     fun checkMasterPassword(password: String): Boolean {
         val storedHash = secureStorage.getString(Constants.SharedPrefs.MASTER_PASSWORD_HASH, "")
         val inputHash = passwordGenerator.generatePassword(
-            PasswordGenerator.ALGORITHM_SHA256,
+            PasswordGenerator.ALGORITHM_PBKDF2,
             "",
             0,
             32,
@@ -88,54 +88,6 @@ class PasswordRepository(context: Context) {
 
         return passwordGenerator.generatePassword(
             algorithm,
-            label,
-            version,
-            length,
-            prefix,
-            masterPassword!!
-        )
-    }
-
-    /**
-     * LEGACY: Generate password using MD5 hash
-     * Preserved for backward compatibility with existing passwords
-     * @deprecated Use generatePasswordFromModel instead
-     */
-    @Deprecated("Use generatePasswordFromModel instead")
-    fun generatePassword(password: Password): String {
-        if (!hasMasterPassword() || masterPassword == null) return ""
-
-        val label = password.label ?: return ""
-        val version = password.version ?: 1
-        val length = password.length ?: Constants.Misc.DEFAULT_LENGTH
-        val prefix = password.prefix ?: ""
-
-        return passwordGenerator.generatePassword(
-            PasswordGenerator.ALGORITHM_MD5,
-            label,
-            version,
-            length,
-            prefix,
-            masterPassword!!
-        )
-    }
-
-    /**
-     * LEGACY: Generate password using SHA-256 hash
-     * Preserved for backward compatibility
-     * @deprecated Use generatePasswordFromModel instead
-     */
-    @Deprecated("Use generatePasswordFromModel instead")
-    fun generatePassword2(password: Password): String {
-        if (!hasMasterPassword() || masterPassword == null) return ""
-
-        val label = password.label ?: return ""
-        val version = password.version ?: 1
-        val length = password.length ?: Constants.Misc.DEFAULT_LENGTH
-        val prefix = password.prefix ?: ""
-
-        return passwordGenerator.generatePassword(
-            PasswordGenerator.ALGORITHM_SHA256,
             label,
             version,
             length,
