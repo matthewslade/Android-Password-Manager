@@ -22,7 +22,6 @@ class MainActivity : APMActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        authenticationManager?.createKey()
 
         setContent {
             PasswordManagerTheme {
